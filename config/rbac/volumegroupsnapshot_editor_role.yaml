@@ -1,0 +1,24 @@
+# permissions for end users to edit volumegroupsnapshots.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: volumegroupsnapshot-editor-role
+rules:
+- apiGroups:
+  - volumegroup.example.com
+  resources:
+  - volumegroupsnapshots
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - volumegroup.example.com
+  resources:
+  - volumegroupsnapshots/status
+  verbs:
+  - get

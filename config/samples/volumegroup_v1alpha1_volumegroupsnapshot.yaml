@@ -1,0 +1,6 @@
+apiVersion: volumegroup.example.com/v1alpha1
+kind: VolumeGroupSnapshot
+metadata:
+  name: volumegroupsnapshot-sample
+spec:
+  # TODO(user): Add fields here

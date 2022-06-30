@@ -1,0 +1,6 @@
+## Append samples you want in your CSV to this file as resources ##
+resources:
+- volumegroup_v1alpha1_volumegroup.yaml
+- volumegroup_v1alpha1_volumegroupsnapshot.yaml
+- volumegroup_v1alpha1_volumegroupsnapshotcontent.yaml
+#+kubebuilder:scaffold:manifestskustomizesamples
