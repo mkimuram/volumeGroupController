@@ -20,34 +20,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // VolumeGroupSpec defines the desired state of VolumeGroup
 type VolumeGroupSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of VolumeGroup. Edit volumegroup_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
-}
-
-// VolumeGroupStatus defines the observed state of VolumeGroup
-type VolumeGroupStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Selector is a label query over PersistentVolumeClaims that should match the volume group.
+	// +optional
+	Selector *metav1.LabelSelector `json:"selector,omitempty"`
 }
 
 //+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
 
 // VolumeGroup is the Schema for the volumegroups API
 type VolumeGroup struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   VolumeGroupSpec   `json:"spec,omitempty"`
-	Status VolumeGroupStatus `json:"status,omitempty"`
+	Spec VolumeGroupSpec `json:"spec,omitempty"`
 }
 
 //+kubebuilder:object:root=true

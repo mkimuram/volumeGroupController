@@ -20,26 +20,45 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // VolumeGroupSnapshotSpec defines the desired state of VolumeGroupSnapshot
 type VolumeGroupSnapshotSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// +optional
+	VolumeGroupName *string `json:"volumeGroupName,omitempty"`
 
-	// Foo is an example field of VolumeGroupSnapshot. Edit volumegroupsnapshot_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// +optional
+	BoundVolumeGroupSnapshotContentName *string `json:"boundVolumeGroupSnapshotContentName,omitempty"`
 }
 
 // VolumeGroupSnapshotStatus defines the observed state of VolumeGroupSnapshot
 type VolumeGroupSnapshotStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// ReadyToUse becomes true when ReadyToUse on all individual snapshots become true
+	// +optional
+	ReadyToUse *bool `json:"readyToUse,omitempty"`
+
+	// +optional
+	CreationTime *metav1.Time `json:"creationTime,omitempty"`
+
+	// +optional
+	Error *VolumeGroupSnapshotError `json:"error,omitempty"`
+}
+
+// VolumeGroupSnapshotError describes an error encountered on the group snapshot
+type VolumeGroupSnapshotError struct {
+	// time is the timestamp when the error was encountered.
+	// +optional
+	Time *metav1.Time `json:"time,omitempty"`
+
+	// message details the encountered error
+	// +optional
+	Message *string `json:"message,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:resource:scope=Namespaced,shortName=vgs
+//+kubebuilder:printcolumn:name="ReadyToUse",type=boolean,JSONPath=`.status.readyToUse`,description="Indicates if the volumeGroupSnapshot is ready to be used to restore a volume."
+//+kubebuilder:printcolumn:name="VolumeGroup",type=string,JSONPath=`.spec.volumeGroupName`,description="If a new volumeGroupSnapshotContent needs to be created, this contains the name of the volumeGroupName from which this volumeGroupSnapshot was (or will be) created."
+//+kubebuilder:printcolumn:name="VolumeGroupSnapshotContent",type=string,JSONPath=`.spec.boundVolumeGroupSnapshotContentName`,description="Name of the VolumeGroupSnapshotContent object to which the VolumeGroupSnapshot object intends to bind to."
 
 // VolumeGroupSnapshot is the Schema for the volumegroupsnapshots API
 type VolumeGroupSnapshot struct {

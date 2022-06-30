@@ -20,26 +20,40 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // VolumeGroupSnapshotContentSpec defines the desired state of VolumeGroupSnapshotContent
 type VolumeGroupSnapshotContentSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Required
+	// VolumeGroupSnapshotRef specifies the VolumeGroupSnapshot object
+	// to which this VolumeGroupSnapshotContent object is bound.
+	VolumeGroupSnapshotName *string `json:"volumeGroupSnapshotName,omitempty"`
 
-	// Foo is an example field of VolumeGroupSnapshotContent. Edit volumegroupsnapshotcontent_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// List of persistent volume claims to take snapshots from
+	// +optional
+	PersistentVolumeClaimList []string `json:"persistentVolumeClaimList"`
+
+	// Required
+	// List of volume snapshots
+	SnapshotList []string `json:"snapshotList"`
 }
 
 // VolumeGroupSnapshotContentStatus defines the observed state of VolumeGroupSnapshotContent
 type VolumeGroupSnapshotContentStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// ReadyToUse becomes true when ReadyToUse on all individual snapshots become true
+	// +optional
+	ReadyToUse *bool `json:"readyToUse,omitempty"`
+
+	// +optional
+	CreationTime *int64 `json:"creationTime,omitempty"`
+
+	// +optional
+	Error *VolumeGroupSnapshotError `json:"error,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:resource:scope=Namespaced,shortName=vgsc
+//+kubebuilder:printcolumn:name="ReadyToUse",type=boolean,JSONPath=`.status.readyToUse`,description="Indicates if the volumeGroupSnapshotContent is ready to be used to restore a volume."
+//+kubebuilder:printcolumn:name="VolumeGroupSnapshot",type=string,JSONPath=`.spec.volumeGroupSnapshotName`,description="Name of the VolumeGroupSnapshot object to which this VolumeGroupSnapshotContent object is bound."
 
 // VolumeGroupSnapshotContent is the Schema for the volumegroupsnapshotcontents API
 type VolumeGroupSnapshotContent struct {
