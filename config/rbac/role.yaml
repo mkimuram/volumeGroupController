@@ -1,0 +1,92 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumes
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - snapshot.storage.k8s.io
+  resources:
+  - volumesnapshots
+  verbs:
+  - create
+  - get
+- apiGroups:
+  - volumegroup.example.com
+  resources:
+  - volumegroups
+  verbs:
+  - get
+- apiGroups:
+  - volumegroup.example.com
+  resources:
+  - volumegroupsnapshotContents
+  verbs:
+  - create
+  - get
+- apiGroups:
+  - volumegroup.example.com
+  resources:
+  - volumegroupsnapshotContents/status
+  verbs:
+  - get
+- apiGroups:
+  - volumegroup.example.com
+  resources:
+  - volumegroupsnapshotcontents
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - volumegroup.example.com
+  resources:
+  - volumegroupsnapshotcontents/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - volumegroup.example.com
+  resources:
+  - volumegroupsnapshotcontents/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - volumegroup.example.com
+  resources:
+  - volumegroupsnapshots
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - volumegroup.example.com
+  resources:
+  - volumegroupsnapshots/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - volumegroup.example.com
+  resources:
+  - volumegroupsnapshots/status
+  verbs:
+  - get
+  - patch
+  - update
