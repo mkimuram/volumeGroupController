@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	volumegroupv1alpha1 "github.com/mkimuram/volumeGroupController/api/v1alpha1"
 	"github.com/mkimuram/volumeGroupController/controllers"
 	//+kubebuilder:scaffold:imports
@@ -45,6 +46,8 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(volumegroupv1alpha1.AddToScheme(scheme))
+
+	utilruntime.Must(snapshotv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 

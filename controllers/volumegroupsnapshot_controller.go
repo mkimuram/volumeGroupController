@@ -18,8 +18,13 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -36,22 +41,152 @@ type VolumeGroupSnapshotReconciler struct {
 //+kubebuilder:rbac:groups=volumegroup.example.com,resources=volumegroupsnapshots,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=volumegroup.example.com,resources=volumegroupsnapshots/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=volumegroup.example.com,resources=volumegroupsnapshots/finalizers,verbs=update
+//+kubebuilder:rbac:groups=volumegroup.example.com,resources=volumegroups,verbs=get
+//+kubebuilder:rbac:groups=volumegroup.example.com,resources=volumegroupsnapshotContents,verbs=get;create
+//+kubebuilder:rbac:groups=volumegroup.example.com,resources=volumegroupsnapshotContents/status,verbs=get
+//+kubebuilder:rbac:groups=core,resources=persistentvolumes,verbs=get;list;
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the VolumeGroupSnapshot object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.1/pkg/reconcile
+// Reconcile is reconciliation loop for VolumeGroupSnapshot
 func (r *VolumeGroupSnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	vgs := &volumegroupv1alpha1.VolumeGroupSnapshot{}
+	if err := r.Get(ctx, req.NamespacedName, vgs); err != nil {
+		if errors.IsNotFound(err) {
+			// Request object not found. Ignore this
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	if vgs.Status.ReadyToUse != nil && *vgs.Status.ReadyToUse {
+		// Already ready to use
+		return ctrl.Result{}, nil
+	}
+
+	if vgs.Spec.BoundVolumeGroupSnapshotContentName == nil {
+		if vgs.Spec.VolumeGroupName != nil {
+			// Create VolumeGroupSnapshotContent for VolumeGroup
+			err := r.createVolumeGroupSnapshotContent(ctx, vgs)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+
+			return ctrl.Result{Requeue: true}, nil
+		}
+		// Retry until BoundVolumeGroupSnapshotContentName become non-nil.
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	// Update ReadyToUse
+	readyToUse, err := r.updateReadyToUse(ctx, vgs)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if !readyToUse {
+		return ctrl.Result{Requeue: true}, nil
+	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *VolumeGroupSnapshotReconciler) createVolumeGroupSnapshotContent(ctx context.Context, vgs *volumegroupv1alpha1.VolumeGroupSnapshot) error {
+	vgsc, err := r.volumeGroupSnapshotContentFor(ctx, vgs)
+	if err != nil {
+		return err
+	}
+
+	err = r.Create(ctx, vgsc)
+	if err != nil {
+		if !errors.IsAlreadyExists(err) {
+			return err
+		}
+		// Continue already exists case
+	}
+
+	// Set vgsc.Name to vgs's VolumeGroupSnapshotContentName
+	vgs.Spec.BoundVolumeGroupSnapshotContentName = &vgsc.Name
+	// TODO: Consider also setting CreationTime somewhere
+
+	if err := r.Update(ctx, vgs); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *VolumeGroupSnapshotReconciler) volumeGroupSnapshotContentFor(ctx context.Context, vgs *volumegroupv1alpha1.VolumeGroupSnapshot) (*volumegroupv1alpha1.VolumeGroupSnapshotContent, error) {
+	if vgs.Spec.VolumeGroupName == nil {
+		return nil, fmt.Errorf("VolumeGroupName for %s/%s is nill", vgs.Namespace, vgs.Name)
+	}
+
+	vg := &volumegroupv1alpha1.VolumeGroup{}
+
+	if err := r.Get(ctx, types.NamespacedName{Name: *vgs.Spec.VolumeGroupName, Namespace: vgs.Namespace}, vg); err != nil {
+		return nil, err
+	}
+
+	pvcList := &corev1.PersistentVolumeClaimList{}
+	selector, err := metav1.LabelSelectorAsSelector(vg.Spec.Selector)
+	if err != nil {
+		return nil, err
+	}
+	//listOpts := []client.ListOption{labels.Set(selector.String()).String()}
+	listOpts := &client.ListOptions{LabelSelector: selector}
+
+	if err := r.List(ctx, pvcList, listOpts); err != nil {
+		return nil, err
+	}
+
+	vgsc := &volumegroupv1alpha1.VolumeGroupSnapshotContent{
+		ObjectMeta: metav1.ObjectMeta{
+			// TODO: Consider generating a better name for VolumeGroupSnapshotContent from vgs.Name
+			Name:      fmt.Sprintf("vgsc-%s", vgs.Name),
+			Namespace: vgs.Namespace,
+		},
+		Spec: volumegroupv1alpha1.VolumeGroupSnapshotContentSpec{
+			VolumeGroupSnapshotName:   &vgs.Name,
+			PersistentVolumeClaimList: []string{},
+			SnapshotList:              []string{},
+		},
+	}
+
+	// Set all PVC's names to PersistentVolumeClaimList
+	for _, pvc := range pvcList.Items {
+		vgsc.Spec.PersistentVolumeClaimList = append(vgsc.Spec.PersistentVolumeClaimList, pvc.Name)
+	}
+
+	// Set owner reference from vgs to vgsc
+	ctrl.SetControllerReference(vgs, vgsc, r.Scheme)
+
+	return vgsc, nil
+}
+
+func (r *VolumeGroupSnapshotReconciler) updateReadyToUse(ctx context.Context, vgs *volumegroupv1alpha1.VolumeGroupSnapshot) (bool, error) {
+	if vgs.Spec.BoundVolumeGroupSnapshotContentName == nil {
+		return false, fmt.Errorf("BoundVolumeGroupSnapshotContentName for %s/%s is nill", vgs.Namespace, vgs.Name)
+	}
+
+	vgsc := &volumegroupv1alpha1.VolumeGroupSnapshotContent{}
+
+	if err := r.Get(ctx, types.NamespacedName{Name: *vgs.Spec.BoundVolumeGroupSnapshotContentName, Namespace: vgs.Namespace}, vgsc); err != nil {
+		return false, err
+	}
+
+	if vgsc.Status.ReadyToUse == nil || !*vgsc.Status.ReadyToUse {
+		// VolumeGroupSnapshotContent for this VolumeGroupSnapshot isn't ready to use yet
+		return false, nil
+	}
+
+	// Update VolumeGroupSnapshot's ReadyToUse to true
+	vgs.Status.ReadyToUse = vgsc.Status.ReadyToUse
+
+	if err := r.Status().Update(ctx, vgs); err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
